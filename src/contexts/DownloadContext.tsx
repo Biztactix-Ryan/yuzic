@@ -162,11 +162,18 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     const downloadAlbumById = async (albumId: string) => {
         if (cancelledIds.current.has(albumId)) return;
 
-        const album: Album = await queryClient.fetchQuery({
-            queryKey: [QueryKeys.Album, albumId],
-            queryFn: () => api.albums.get(albumId),
-            staleTime: staleTime.albums,
-        });
+        // Try to get cached data first (offline-first approach)
+        let album = queryClient.getQueryData<Album>([QueryKeys.Album, albumId]);
+        
+        // If not in cache, fetch from server with offline-first mode
+        if (!album) {
+            album = await queryClient.fetchQuery({
+                queryKey: [QueryKeys.Album, albumId],
+                queryFn: () => api.albums.get(albumId),
+                staleTime: staleTime.albums,
+                networkMode: 'offlineFirst', // Use cached data if offline
+            });
+        }
 
         dispatch(markAlbum(albumId));
         setDownloadingIds(d => [...d, albumId]);
@@ -187,11 +194,18 @@ export const DownloadProvider: React.FC<{ children: ReactNode }> = ({ children }
     const downloadPlaylistById = async (playlistId: string) => {
         if (cancelledIds.current.has(playlistId)) return;
 
-        const playlist: Playlist = await queryClient.fetchQuery({
-            queryKey: [QueryKeys.Playlist, playlistId],
-            queryFn: () => api.playlists.get(playlistId),
-            staleTime: staleTime.playlists,
-        });
+        // Try to get cached data first (offline-first approach)
+        let playlist = queryClient.getQueryData<Playlist>([QueryKeys.Playlist, playlistId]);
+        
+        // If not in cache, fetch from server with offline-first mode
+        if (!playlist) {
+            playlist = await queryClient.fetchQuery({
+                queryKey: [QueryKeys.Playlist, playlistId],
+                queryFn: () => api.playlists.get(playlistId),
+                staleTime: staleTime.playlists,
+                networkMode: 'offlineFirst', // Use cached data if offline
+            });
+        }
 
         dispatch(markPlaylist(playlistId));
         setDownloadingIds(d => [...d, playlistId]);
