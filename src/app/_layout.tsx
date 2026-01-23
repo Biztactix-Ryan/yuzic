@@ -33,6 +33,8 @@ const queryClient = new QueryClient({
       retry: 1,
       refetchOnReconnect: true,
       refetchOnWindowFocus: false,
+      networkMode: 'offlineFirst', // Serve cached data immediately when offline
+      gcTime: 7 * 24 * 60 * 60 * 1000, // Keep cached data for 7 days (was Infinity by default)
     },
   },
 });

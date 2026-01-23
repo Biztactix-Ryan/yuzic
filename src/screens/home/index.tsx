@@ -76,12 +76,28 @@ export default function HomeScreen() {
 
     const queryClient = useQueryClient();
 
+    // Background sync: Defer refetch to avoid blocking UI with network requests
+    // This allows cached data to display immediately while syncing in the background
     useEffect(() => {
         if (!activeServer?.isAuthenticated) return;
 
-        queryClient.refetchQueries({ queryKey: [QueryKeys.Albums] });
-        queryClient.refetchQueries({ queryKey: [QueryKeys.Artists] });
-        queryClient.refetchQueries({ queryKey: [QueryKeys.Playlists] });
+        // Defer refetch to allow cached data to render first
+        const timer = setTimeout(() => {
+            queryClient.refetchQueries({ 
+                queryKey: [QueryKeys.Albums],
+                type: 'active' // Only refetch if query is actively being used
+            });
+            queryClient.refetchQueries({ 
+                queryKey: [QueryKeys.Artists],
+                type: 'active'
+            });
+            queryClient.refetchQueries({ 
+                queryKey: [QueryKeys.Playlists],
+                type: 'active'
+            });
+        }, 1000); // 1 second delay to let cached data render first
+
+        return () => clearTimeout(timer);
     }, [activeServer?.id, activeServer?.isAuthenticated]);
 
     useEffect(() => {
