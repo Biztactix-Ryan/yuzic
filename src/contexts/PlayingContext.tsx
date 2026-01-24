@@ -235,7 +235,9 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
       // This guarantees a truly random experience when clicking shuffle
       if (songs.length > 1 && songs[0].id === originalQueueRef.current[0].id) {
         // Swap the first song with a random song from the rest of the array
-        const randomIndex = Math.floor(Math.random() * (songs.length - 1)) + 1;
+        // Use timestamp-based entropy for enhanced randomness
+        const entropyRandom = (Math.random() + Date.now() % 1000 / 1000) % 1;
+        const randomIndex = Math.floor(entropyRandom * (songs.length - 1)) + 1;
         [songs[0], songs[randomIndex]] = [songs[randomIndex], songs[0]];
       }
       
