@@ -128,6 +128,9 @@ const Queue: React.FC<{ onBack: () => void; width: number }> = ({
         <TouchableOpacity
           onPress={onBack}
           style={styles.closeButton}
+          accessibilityLabel="Close queue"
+          accessibilityRole="button"
+          accessibilityHint="Returns to the player view"
         >
           <ChevronDown size={28} color="#fff" />
         </TouchableOpacity>
