@@ -16,10 +16,15 @@ export function getEnhancedRandom(): number {
     const random2 = Math.random();
     
     // Mix the timestamp with two random numbers to create better entropy
+    // Using weighted average to prevent overflow and ensure proper distribution:
+    // - Each Math.random() contributes 40% (0.4)
+    // - Timestamp milliseconds contribute 20%
     // Using modulo 1000 to get milliseconds within the current second
     // which provides rapid variation for successive calls
-    const combined = (random1 + random2 + (timestamp % 1000) / 1000) % 1;
-    return combined;
+    const combined = (random1 * 0.4 + random2 * 0.4 + (timestamp % 1000) / 5000);
+    
+    // Ensure result is always in [0, 1) range
+    return combined % 1;
 }
 
 /**
