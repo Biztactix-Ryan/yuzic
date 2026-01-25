@@ -18,7 +18,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAlbums } from '@/hooks/albums';
 
-
 type QueueItemProps = {
   item: any;
   index: number;
