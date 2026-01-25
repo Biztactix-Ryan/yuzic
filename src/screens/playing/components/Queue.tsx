@@ -67,7 +67,7 @@ const QueueItem = memo(
 );
 
 const Queue: React.FC<{ onBack: () => void; width: number }> = ({
-  onBack,
+  onBack: _onBack,
   width,
 }) => {
   const {
