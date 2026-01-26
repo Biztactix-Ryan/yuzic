@@ -8,6 +8,8 @@ type UseArtistResult = {
   artist: Artist | null;
   isLoading: boolean;
   error: Error | null;
+  refetch: () => void;
+  isRefetching: boolean;
 };
 
 export function useArtist(id: string): UseArtistResult {
@@ -25,5 +27,7 @@ export function useArtist(id: string): UseArtistResult {
     artist: query.data ?? null,
     isLoading: query.isLoading,
     error: query.error ?? null,
+    refetch: query.refetch,
+    isRefetching: query.isRefetching,
   };
 }

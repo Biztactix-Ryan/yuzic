@@ -8,6 +8,8 @@ type UseAlbumResult = {
   album: Album | null;
   isLoading: boolean;
   error: Error | null;
+  refetch: () => void;
+  isRefetching: boolean;
 };
 
 export function useAlbum(id: string): UseAlbumResult {
@@ -25,5 +27,7 @@ export function useAlbum(id: string): UseAlbumResult {
     album: query.data ?? null,
     isLoading: query.isLoading,
     error: query.error ?? null,
+    refetch: query.refetch,
+    isRefetching: query.isRefetching,
   };
 }

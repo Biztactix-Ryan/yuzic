@@ -10,6 +10,8 @@ type UseExternalAlbumResult = {
   album: ExternalAlbum | null;
   isLoading: boolean;
   error: Error | null;
+  refetch: () => void;
+  isRefetching: boolean;
 };
 
 export function useExternalAlbum(
@@ -58,5 +60,7 @@ export function useExternalAlbum(
     album: query.data ?? null,
     isLoading: query.isLoading,
     error: query.error ?? null,
+    refetch: query.refetch,
+    isRefetching: query.isRefetching,
   };
 }

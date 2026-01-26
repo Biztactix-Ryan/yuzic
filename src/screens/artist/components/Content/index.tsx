@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { FlashList } from '@shopify/flash-list';
+import { RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import {
@@ -17,6 +18,8 @@ import { useExternalArtist } from '@/hooks/artists/useExternalArtist';
 
 type Props = {
   artist: Artist;
+  onRefresh: () => void;
+  isRefreshing: boolean;
 };
 
 type CombinedAlbum =
@@ -28,7 +31,7 @@ const ESTIMATED_ROW_HEIGHT = 80;
 const normalizeKey = (artist: string, title: string) =>
   `${artist}:${title}`.toLowerCase().trim();
 
-const ArtistContent: React.FC<Props> = ({ artist }) => {
+const ArtistContent: React.FC<Props> = ({ artist, onRefresh, isRefreshing }) => {
   const navigation = useNavigation();
   const { isDarkMode } = useTheme();
 
@@ -104,6 +107,13 @@ const ArtistContent: React.FC<Props> = ({ artist }) => {
           ? '#000'
           : '#fff',
       }}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefreshing}
+          onRefresh={onRefresh}
+          tintColor={isDarkMode ? '#fff' : '#000'}
+        />
+      }
     />
   );
 };
