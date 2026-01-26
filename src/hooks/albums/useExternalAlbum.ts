@@ -19,6 +19,7 @@ export function useExternalAlbum(
     queryKey: [QueryKeys.ExternalAlbum, releaseGroupId],
     enabled: !!releaseGroupId,
     staleTime: staleTime.musicbrainz,
+    refetchOnMount: true,
 
     queryFn: async () => {
       // 1. Fetch release-group (album metadata)

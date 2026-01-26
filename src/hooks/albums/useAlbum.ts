@@ -18,6 +18,7 @@ export function useAlbum(id: string): UseAlbumResult {
     queryFn: () => api.albums.get(id),
     enabled: !!id,
     staleTime: staleTime.albums,
+    refetchOnMount: true,
   });
 
   return {

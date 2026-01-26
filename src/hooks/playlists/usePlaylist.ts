@@ -18,6 +18,7 @@ export function usePlaylist(id: string): UsePlaylistResult {
     queryFn: () => api.playlists.get(id),
     enabled: !!id,
     staleTime: staleTime.playlists,
+    refetchOnMount: true,
   });
 
   return {
