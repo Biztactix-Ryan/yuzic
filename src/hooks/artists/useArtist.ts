@@ -18,6 +18,7 @@ export function useArtist(id: string): UseArtistResult {
     queryFn: () => api.artists.get(id),
     enabled: !!id,
     staleTime: staleTime.artists,
+    refetchOnMount: true,
   });
 
   return {
