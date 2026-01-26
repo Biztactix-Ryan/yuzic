@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { FlashList } from '@shopify/flash-list';
-import { RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
 import {
@@ -107,13 +106,8 @@ const ArtistContent: React.FC<Props> = ({ artist, onRefresh, isRefreshing }) => 
           ? '#000'
           : '#fff',
       }}
-      refreshControl={
-        <RefreshControl
-          refreshing={isRefreshing}
-          onRefresh={onRefresh}
-          tintColor={isDarkMode ? '#fff' : '#000'}
-        />
-      }
+      onRefresh={onRefresh}
+      refreshing={isRefreshing}
     />
   );
 };
