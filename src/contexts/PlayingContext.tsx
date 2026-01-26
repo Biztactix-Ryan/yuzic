@@ -111,19 +111,19 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
       // Restore playback state if music is playing in background
       try {
         const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
-        if (activeTrackIndex !== undefined && activeTrackIndex !== null) {
+        if (typeof activeTrackIndex === 'number') {
           const track = await TrackPlayer.getTrack(activeTrackIndex);
-          if (track) {
+          if (track && track.id && track.url) {
             // Reconstruct a minimal Song object from TrackPlayer data
             const restoredSong: Song = {
-              id: track.id as string,
+              id: String(track.id),
               title: track.title || 'Unknown',
               artist: track.artist || 'Unknown',
               artistId: '', // Not available from TrackPlayer
               albumId: '', // Not available from TrackPlayer
               cover: { kind: 'none' }, // Will be replaced if we have artwork
               duration: track.duration?.toString() || '0',
-              streamUrl: track.url as string,
+              streamUrl: String(track.url),
             };
 
             setCurrentSong(restoredSong);
@@ -135,7 +135,7 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
       } catch (error) {
         // If restoration fails, just start with empty state
-        console.log('Could not restore playback state:', error);
+        console.warn('Could not restore playback state:', error);
       }
     };
 
