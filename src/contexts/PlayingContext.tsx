@@ -96,8 +96,9 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
   const bumpQueue = () => setQueueVersion(v => v + 1);
 
   useEffect(() => {
-    TrackPlayer.setupPlayer().then(() =>
-      TrackPlayer.updateOptions({
+    const initializePlayer = async () => {
+      await TrackPlayer.setupPlayer();
+      await TrackPlayer.updateOptions({
         capabilities: [
           Capability.Play,
           Capability.Pause,
@@ -105,8 +106,40 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
           Capability.SkipToPrevious,
           Capability.Stop,
         ],
-      })
-    );
+      });
+
+      // Restore playback state if music is playing in background
+      try {
+        const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
+        if (activeTrackIndex !== undefined && activeTrackIndex !== null) {
+          const track = await TrackPlayer.getTrack(activeTrackIndex);
+          if (track) {
+            // Reconstruct a minimal Song object from TrackPlayer data
+            const restoredSong: Song = {
+              id: track.id as string,
+              title: track.title || 'Unknown',
+              artist: track.artist || 'Unknown',
+              artistId: '', // Not available from TrackPlayer
+              albumId: '', // Not available from TrackPlayer
+              cover: { kind: 'none' }, // Will be replaced if we have artwork
+              duration: track.duration?.toString() || '0',
+              streamUrl: track.url as string,
+            };
+
+            setCurrentSong(restoredSong);
+            // Set single-song queue for basic playback control
+            queueRef.current = [restoredSong];
+            setCurrentIndex(0);
+            bumpQueue();
+          }
+        }
+      } catch (error) {
+        // If restoration fails, just start with empty state
+        console.log('Could not restore playback state:', error);
+      }
+    };
+
+    initializePlayer();
   }, []);
 
   const scrobbleIfNeeded = async (song: Song | null) => {
