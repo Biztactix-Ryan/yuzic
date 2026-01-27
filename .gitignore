@@ -41,3 +41,8 @@ app-example
 .expo
 dist/
 web-build/
+# Lock files - use package-lock.json
+yarn.lock
+
+# ESLint config - auto-generated
+eslint.config.js
