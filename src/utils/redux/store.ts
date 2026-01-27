@@ -8,6 +8,7 @@ import settingsReducer from './slices/settingsSlice';
 import downloadsReducer from './slices/downloadsSlice';
 import listenbrainzReducer from './slices/listenbrainzSlice';
 import statsReducer from './slices/statsSlice';
+import playbackReducer from './slices/playbackSlice';
 
 const serversPersistConfig = { key: 'servers', storage };
 const lidarrPersistConfig = { key: 'lidarr', storage };
@@ -15,6 +16,7 @@ const settingsPersistConfig = { key: 'settings', storage };
 const downloadsPersistConfig = { key: 'downloads', storage };
 const listenbrainzPersistConfig = { key: 'listenbrainz', storage };
 const statsPersistConfig = { key: 'stats', storage };
+const playbackPersistConfig = { key: 'playback', storage };
 
 export const rootReducer = combineReducers({
     servers: serversReducer,
@@ -22,7 +24,8 @@ export const rootReducer = combineReducers({
     settings: settingsReducer,
     downloads: downloadsReducer,
     listenbrainz: listenbrainzReducer,
-    stats: statsReducer
+    stats: statsReducer,
+    playback: playbackReducer
 });
 
 const persistedReducer = combineReducers({
@@ -31,7 +34,8 @@ const persistedReducer = combineReducers({
     settings: persistReducer(settingsPersistConfig, settingsReducer),
     downloads: persistReducer(downloadsPersistConfig, downloadsReducer),
     listenbrainz: persistReducer(listenbrainzPersistConfig, listenbrainzReducer),
-    stats: persistReducer(statsPersistConfig, statsReducer)
+    stats: persistReducer(statsPersistConfig, statsReducer),
+    playback: persistReducer(playbackPersistConfig, playbackReducer)
 });
 
 const store = configureStore({

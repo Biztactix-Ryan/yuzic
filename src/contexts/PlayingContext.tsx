@@ -24,6 +24,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { incrementPlay } from '@/utils/redux/slices/statsSlice';
 import * as listenbrainz from '@/api/listenbrainz'
 import { selectListenBrainzConfig } from '@/utils/redux/selectors/listenbrainzSelectors';
+import { updatePlaybackState, clearPlaybackState } from '@/utils/redux/slices/playbackSlice';
+import { selectPlaybackState } from '@/utils/redux/selectors/playbackSelectors';
 
 TrackPlayer.registerPlaybackService(() => PlaybackService);
 
@@ -82,6 +84,7 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
   const { getSongLocalUri } = useDownload();
   const dispatch = useDispatch();
   const listenBrainzConfig = useSelector(selectListenBrainzConfig);
+  const persistedPlayback = useSelector(selectPlaybackState);
 
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -92,8 +95,24 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
   const queueRef = useRef<Song[]>([]);
   const originalQueueRef = useRef<Song[] | null>(null);
   const lastScrobbledIdRef = useRef<string | null>(null);
+  const isRestoringRef = useRef(false);
 
   const bumpQueue = () => setQueueVersion(v => v + 1);
+
+  // Persist playback state to Redux whenever queue or settings change
+  useEffect(() => {
+    if (isRestoringRef.current) return;
+    
+    dispatch(
+      updatePlaybackState({
+        queue: queueRef.current,
+        originalQueue: originalQueueRef.current,
+        currentIndex,
+        repeatOn,
+        shuffleOn,
+      })
+    );
+  }, [queueVersion, currentIndex, repeatOn, shuffleOn, dispatch]);
 
   useEffect(() => {
     const initializePlayer = async () => {
@@ -111,36 +130,62 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
       // Restore playback state if music is playing in background
       try {
         const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
+        
+        // Check if TrackPlayer has an active track
         if (typeof activeTrackIndex === 'number') {
           const track = await TrackPlayer.getTrack(activeTrackIndex);
-          if (track && track.id && track.url) {
-            // Reconstruct a minimal Song object from TrackPlayer data
-            const restoredSong: Song = {
-              id: String(track.id),
-              title: track.title || 'Unknown',
-              artist: track.artist || 'Unknown',
-              artistId: '', // Not available from TrackPlayer
-              albumId: '', // Not available from TrackPlayer
-              cover: { kind: 'none' }, // Will be replaced if we have artwork
-              duration: track.duration?.toString() || '0',
-              streamUrl: String(track.url),
-            };
-
-            setCurrentSong(restoredSong);
-            // Set single-song queue for basic playback control
-            queueRef.current = [restoredSong];
-            setCurrentIndex(0);
-            bumpQueue();
+          
+          // Only restore if we have both a track and persisted queue data
+          if (track && track.id && persistedPlayback.queue.length > 0) {
+            isRestoringRef.current = true;
+            
+            // Find the song in our persisted queue that matches the active track
+            const matchingSong = persistedPlayback.queue.find(
+              (song) => song.id === String(track.id)
+            );
+            
+            // Only restore if the playing track is from our app's queue
+            if (matchingSong) {
+              // Restore the full queue state from Redux
+              queueRef.current = persistedPlayback.queue;
+              originalQueueRef.current = persistedPlayback.originalQueue;
+              
+              // Find the current index in our queue
+              const restoredIndex = persistedPlayback.queue.findIndex(
+                (song) => song.id === String(track.id)
+              );
+              
+              setCurrentIndex(restoredIndex >= 0 ? restoredIndex : persistedPlayback.currentIndex);
+              setCurrentSong(matchingSong);
+              setRepeatOn(persistedPlayback.repeatOn);
+              setShuffleOn(persistedPlayback.shuffleOn);
+              bumpQueue();
+              
+              console.log('Restored playback state:', {
+                queueLength: queueRef.current.length,
+                currentIndex: restoredIndex >= 0 ? restoredIndex : persistedPlayback.currentIndex,
+                currentSong: matchingSong.title,
+              });
+            } else {
+              // Track is playing but not from our queue - clear persisted state
+              console.log('Track playing is not from our app, clearing saved state');
+              dispatch(clearPlaybackState());
+            }
+            
+            isRestoringRef.current = false;
+          } else if (track && track.id && persistedPlayback.queue.length === 0) {
+            // Track is playing but we have no saved queue - likely another app
+            console.log('No saved queue found, track may be from another app');
           }
         }
       } catch (error) {
-        // If restoration fails, just start with empty state
+        isRestoringRef.current = false;
         console.warn('Could not restore playback state:', error);
       }
     };
 
     initializePlayer();
-  }, []);
+  }, [persistedPlayback, dispatch]);
 
   const scrobbleIfNeeded = async (song: Song | null) => {
     if (!song) return;
