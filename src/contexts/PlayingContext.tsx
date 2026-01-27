@@ -96,6 +96,8 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
   const originalQueueRef = useRef<Song[] | null>(null);
   const lastScrobbledIdRef = useRef<string | null>(null);
   const isRestoringRef = useRef(false);
+  const hasRestoredRef = useRef(false);
+  const playerSetupRef = useRef(false);
 
   const bumpQueue = () => setQueueVersion(v => v + 1);
 
@@ -114,8 +116,12 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
     );
   }, [queueVersion, currentIndex, repeatOn, shuffleOn, dispatch]);
 
+  // Setup TrackPlayer once on mount
   useEffect(() => {
-    const initializePlayer = async () => {
+    const setupPlayer = async () => {
+      if (playerSetupRef.current) return;
+      playerSetupRef.current = true;
+
       await TrackPlayer.setupPlayer();
       await TrackPlayer.updateOptions({
         capabilities: [
@@ -126,78 +132,99 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
           Capability.Stop,
         ],
       });
+    };
 
-      // Restore playback state from persisted data
+    setupPlayer();
+  }, []);
+
+  // Restore playback state when persistedPlayback is rehydrated
+  useEffect(() => {
+    const restorePlaybackState = async () => {
+      // Only restore once and when we have data
+      if (hasRestoredRef.current || persistedPlayback.queue.length === 0) {
+        return;
+      }
+
+      // Wait for player setup to complete
+      let attempts = 0;
+      while (!playerSetupRef.current && attempts < 10) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+
+      if (!playerSetupRef.current) {
+        console.warn('TrackPlayer setup timeout');
+        return;
+      }
+
+      hasRestoredRef.current = true;
+      isRestoringRef.current = true;
+      
       try {
         const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
         
-        // Check if we have persisted queue data to restore
-        if (persistedPlayback.queue.length > 0) {
-          isRestoringRef.current = true;
+        // Case 1: TrackPlayer has an active track (music playing in background)
+        if (typeof activeTrackIndex === 'number') {
+          const track = await TrackPlayer.getTrack(activeTrackIndex);
           
-          // Case 1: TrackPlayer has an active track (music playing in background)
-          if (typeof activeTrackIndex === 'number') {
-            const track = await TrackPlayer.getTrack(activeTrackIndex);
+          if (track && track.id) {
+            // Find the song in our persisted queue that matches the active track
+            const matchingSong = persistedPlayback.queue.find(
+              (song) => song.id === String(track.id)
+            );
             
-            if (track && track.id) {
-              // Find the song in our persisted queue that matches the active track
-              const matchingSong = persistedPlayback.queue.find(
+            // Only restore if the playing track is from our app's queue
+            if (matchingSong) {
+              // Restore the full queue state from Redux
+              queueRef.current = persistedPlayback.queue;
+              originalQueueRef.current = persistedPlayback.originalQueue;
+              
+              // Find the current index in our queue
+              const restoredIndex = persistedPlayback.queue.findIndex(
                 (song) => song.id === String(track.id)
               );
               
-              // Only restore if the playing track is from our app's queue
-              if (matchingSong) {
-                // Restore the full queue state from Redux
-                queueRef.current = persistedPlayback.queue;
-                originalQueueRef.current = persistedPlayback.originalQueue;
-                
-                // Find the current index in our queue
-                const restoredIndex = persistedPlayback.queue.findIndex(
-                  (song) => song.id === String(track.id)
-                );
-                
-                // Use the found index, or fallback to persisted index with bounds check
-                let indexToUse = restoredIndex >= 0 ? restoredIndex : persistedPlayback.currentIndex;
-                // Ensure index is within bounds
-                indexToUse = Math.max(0, Math.min(indexToUse, persistedPlayback.queue.length - 1));
-                
-                setCurrentIndex(indexToUse);
-                setCurrentSong(matchingSong);
-                setRepeatOn(persistedPlayback.repeatOn);
-                setShuffleOn(persistedPlayback.shuffleOn);
-                bumpQueue();
-              } else {
-                // Track is playing but not from our queue - clear persisted state
-                dispatch(clearPlaybackState());
-              }
+              // Use the found index, or fallback to persisted index with bounds check
+              let indexToUse = restoredIndex >= 0 ? restoredIndex : persistedPlayback.currentIndex;
+              // Ensure index is within bounds
+              indexToUse = Math.max(0, Math.min(indexToUse, persistedPlayback.queue.length - 1));
+              
+              setCurrentIndex(indexToUse);
+              setCurrentSong(matchingSong);
+              setRepeatOn(persistedPlayback.repeatOn);
+              setShuffleOn(persistedPlayback.shuffleOn);
+              bumpQueue();
+            } else {
+              // Track is playing but not from our queue - clear persisted state
+              dispatch(clearPlaybackState());
             }
-          } else {
-            // Case 2: No active track (app was stopped/paused), but we have persisted queue
-            // Restore the queue state so user can continue from where they left off
-            queueRef.current = persistedPlayback.queue;
-            originalQueueRef.current = persistedPlayback.originalQueue;
-            
-            // Ensure index is within bounds
-            const indexToUse = Math.max(0, Math.min(persistedPlayback.currentIndex, persistedPlayback.queue.length - 1));
-            
-            setCurrentIndex(indexToUse);
-            // Safe to access since indexToUse is guaranteed to be within bounds
-            const restoredSong = persistedPlayback.queue[indexToUse];
-            setCurrentSong(restoredSong || null);
-            setRepeatOn(persistedPlayback.repeatOn);
-            setShuffleOn(persistedPlayback.shuffleOn);
-            bumpQueue();
           }
+        } else {
+          // Case 2: No active track (app was stopped/paused), but we have persisted queue
+          // Restore the queue state so user can continue from where they left off
+          queueRef.current = persistedPlayback.queue;
+          originalQueueRef.current = persistedPlayback.originalQueue;
           
-          isRestoringRef.current = false;
+          // Ensure index is within bounds
+          const indexToUse = Math.max(0, Math.min(persistedPlayback.currentIndex, persistedPlayback.queue.length - 1));
+          
+          setCurrentIndex(indexToUse);
+          // Safe to access since indexToUse is guaranteed to be within bounds
+          const restoredSong = persistedPlayback.queue[indexToUse];
+          setCurrentSong(restoredSong || null);
+          setRepeatOn(persistedPlayback.repeatOn);
+          setShuffleOn(persistedPlayback.shuffleOn);
+          bumpQueue();
         }
+        
+        isRestoringRef.current = false;
       } catch (error) {
         isRestoringRef.current = false;
         console.warn('Could not restore playback state:', error);
       }
     };
 
-    initializePlayer();
+    restorePlaybackState();
   }, [persistedPlayback, dispatch]);
 
   const scrobbleIfNeeded = async (song: Song | null) => {
