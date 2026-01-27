@@ -97,7 +97,7 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
   const lastScrobbledIdRef = useRef<string | null>(null);
   const isRestoringRef = useRef(false);
   const hasRestoredRef = useRef(false);
-  const playerSetupRef = useRef(false);
+  const playerSetupPromiseRef = useRef<Promise<void> | null>(null);
 
   const bumpQueue = () => setQueueVersion(v => v + 1);
 
@@ -118,10 +118,9 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // Setup TrackPlayer once on mount
   useEffect(() => {
-    const setupPlayer = async () => {
-      if (playerSetupRef.current) return;
-      playerSetupRef.current = true;
+    if (playerSetupPromiseRef.current) return;
 
+    const setupPlayer = async () => {
       await TrackPlayer.setupPlayer();
       await TrackPlayer.updateOptions({
         capabilities: [
@@ -134,7 +133,7 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
       });
     };
 
-    setupPlayer();
+    playerSetupPromiseRef.current = setupPlayer();
   }, []);
 
   // Restore playback state when persistedPlayback is rehydrated
@@ -146,15 +145,13 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
       }
 
       // Wait for player setup to complete
-      let attempts = 0;
-      while (!playerSetupRef.current && attempts < 10) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        attempts++;
-      }
-
-      if (!playerSetupRef.current) {
-        console.warn('TrackPlayer setup timeout');
-        return;
+      if (playerSetupPromiseRef.current) {
+        try {
+          await playerSetupPromiseRef.current;
+        } catch (error) {
+          console.warn('TrackPlayer setup failed:', error);
+          return;
+        }
       }
 
       hasRestoredRef.current = true;
