@@ -181,7 +181,9 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
             const indexToUse = Math.max(0, Math.min(persistedPlayback.currentIndex, persistedPlayback.queue.length - 1));
             
             setCurrentIndex(indexToUse);
-            setCurrentSong(persistedPlayback.queue[indexToUse] || null);
+            // Safe to access since indexToUse is guaranteed to be within bounds
+            const restoredSong = persistedPlayback.queue[indexToUse];
+            setCurrentSong(restoredSong || null);
             setRepeatOn(persistedPlayback.repeatOn);
             setShuffleOn(persistedPlayback.shuffleOn);
             bumpQueue();
