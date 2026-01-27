@@ -156,7 +156,7 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
         lastSavedAt: persistedPlayback.lastSavedAt,
       });
 
-      // Only restore once and when we have data
+      // Only restore once successfully
       if (hasRestoredRef.current) {
         console.log('[PlayingContext] Already restored, skipping');
         return;
@@ -174,12 +174,12 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
         }
       }
 
-      hasRestoredRef.current = true;
       isRestoringRef.current = true;
       
       try {
         const activeTrackIndex = await TrackPlayer.getActiveTrackIndex();
-        console.log('[PlayingContext] Active track index:', activeTrackIndex);
+        const nativeQueue = await TrackPlayer.getQueue();
+        console.log('[PlayingContext] Active track index:', activeTrackIndex, 'Native queue length:', nativeQueue.length);
         
         // Case 1: TrackPlayer has an active track (music playing in background)
         if (typeof activeTrackIndex === 'number') {
@@ -187,52 +187,54 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
           console.log('[PlayingContext] Active track:', track?.id, track?.title);
           
           if (track && track.id) {
-            // If we have no persisted queue but music is playing, it's from this session before close
-            // We should NOT clear it - just skip restoration
-            if (persistedPlayback.queue.length === 0) {
-              console.log('[PlayingContext] No persisted queue but track playing - keeping current TrackPlayer state');
-              isRestoringRef.current = false;
-              return;
-            }
-
-            // Find the song in our persisted queue that matches the active track
-            const matchingSong = persistedPlayback.queue.find(
-              (song) => song.id === String(track.id)
-            );
-            
-            console.log('[PlayingContext] Matching song found:', !!matchingSong);
-            
-            // Only restore if the playing track is from our app's queue
-            if (matchingSong) {
-              // Restore the full queue state from Redux
-              queueRef.current = persistedPlayback.queue;
-              originalQueueRef.current = persistedPlayback.originalQueue;
-              
-              // Find the current index in our queue
-              const restoredIndex = persistedPlayback.queue.findIndex(
+            // Check if we have persisted queue data
+            if (persistedPlayback.queue.length > 0) {
+              // Find the song in our persisted queue that matches the active track
+              const matchingSong = persistedPlayback.queue.find(
                 (song) => song.id === String(track.id)
               );
               
-              // Use the found index, or fallback to persisted index with bounds check
-              let indexToUse = restoredIndex >= 0 ? restoredIndex : persistedPlayback.currentIndex;
-              // Ensure index is within bounds
-              indexToUse = Math.max(0, Math.min(indexToUse, persistedPlayback.queue.length - 1));
+              console.log('[PlayingContext] Matching song found:', !!matchingSong);
               
-              setCurrentIndex(indexToUse);
-              setCurrentSong(matchingSong);
-              setRepeatOn(persistedPlayback.repeatOn);
-              setShuffleOn(persistedPlayback.shuffleOn);
-              bumpQueue();
-              
-              console.log('[PlayingContext] Restored queue with', queueRef.current.length, 'songs at index', indexToUse);
+              // Only restore if the playing track is from our app's queue
+              if (matchingSong) {
+                // Restore the full queue state from Redux
+                queueRef.current = persistedPlayback.queue;
+                originalQueueRef.current = persistedPlayback.originalQueue;
+                
+                // Find the current index in our queue
+                const restoredIndex = persistedPlayback.queue.findIndex(
+                  (song) => song.id === String(track.id)
+                );
+                
+                // Use the found index, or fallback to persisted index with bounds check
+                let indexToUse = restoredIndex >= 0 ? restoredIndex : persistedPlayback.currentIndex;
+                // Ensure index is within bounds
+                indexToUse = Math.max(0, Math.min(indexToUse, persistedPlayback.queue.length - 1));
+                
+                setCurrentIndex(indexToUse);
+                setCurrentSong(matchingSong);
+                setRepeatOn(persistedPlayback.repeatOn);
+                setShuffleOn(persistedPlayback.shuffleOn);
+                bumpQueue();
+                
+                hasRestoredRef.current = true;
+                console.log('[PlayingContext] Restored queue with', queueRef.current.length, 'songs at index', indexToUse);
+              } else {
+                // Track is playing but not from our persisted queue - this is another app
+                console.log('[PlayingContext] Track not in persisted queue, clearing saved state');
+                dispatch(clearPlaybackState());
+                hasRestoredRef.current = true;
+              }
             } else {
-              // Track is playing but not from our queue - clear persisted state
-              console.log('[PlayingContext] Track not in persisted queue, clearing saved state');
-              dispatch(clearPlaybackState());
+              // No persisted queue but music is playing
+              // This could mean: 1) Redux hasn't rehydrated yet, or 2) first time playing
+              // Don't mark as restored yet so we can try again when Redux rehydrates
+              console.log('[PlayingContext] No persisted queue yet, will retry when Redux rehydrates');
             }
           }
         } else {
-          // Case 2: No active track (app was stopped/paused), but we have persisted queue
+          // Case 2: No active track (app was stopped/paused)
           if (persistedPlayback.queue.length > 0) {
             console.log('[PlayingContext] No active track, restoring persisted queue');
             // Restore the queue state so user can continue from where they left off
@@ -250,9 +252,12 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
             setShuffleOn(persistedPlayback.shuffleOn);
             bumpQueue();
             
+            hasRestoredRef.current = true;
             console.log('[PlayingContext] Restored queue with', queueRef.current.length, 'songs at index', indexToUse);
           } else {
-            console.log('[PlayingContext] No active track and no persisted queue - nothing to restore');
+            // No active track and no persisted queue
+            // Don't mark as restored in case Redux hasn't rehydrated yet
+            console.log('[PlayingContext] No active track and no persisted queue - waiting for Redux rehydration');
           }
         }
         
