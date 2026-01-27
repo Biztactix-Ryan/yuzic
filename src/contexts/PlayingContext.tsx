@@ -155,27 +155,22 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
                 (song) => song.id === String(track.id)
               );
               
-              setCurrentIndex(restoredIndex >= 0 ? restoredIndex : persistedPlayback.currentIndex);
+              // Use the found index, or fallback to persisted index with bounds check
+              let indexToUse = restoredIndex >= 0 ? restoredIndex : persistedPlayback.currentIndex;
+              // Ensure index is within bounds
+              indexToUse = Math.max(0, Math.min(indexToUse, persistedPlayback.queue.length - 1));
+              
+              setCurrentIndex(indexToUse);
               setCurrentSong(matchingSong);
               setRepeatOn(persistedPlayback.repeatOn);
               setShuffleOn(persistedPlayback.shuffleOn);
               bumpQueue();
-              
-              console.log('Restored playback state:', {
-                queueLength: queueRef.current.length,
-                currentIndex: restoredIndex >= 0 ? restoredIndex : persistedPlayback.currentIndex,
-                currentSong: matchingSong.title,
-              });
             } else {
               // Track is playing but not from our queue - clear persisted state
-              console.log('Track playing is not from our app, clearing saved state');
               dispatch(clearPlaybackState());
             }
             
             isRestoringRef.current = false;
-          } else if (track && track.id && persistedPlayback.queue.length === 0) {
-            // Track is playing but we have no saved queue - likely another app
-            console.log('No saved queue found, track may be from another app');
           }
         }
       } catch (error) {
