@@ -29,6 +29,7 @@ export function useExternalArtist(input: UseExternalArtistInput | null) {
     queryKey: [QueryKeys.ExternalArtist, mbid ?? name ?? ''],
     enabled,
     staleTime: staleTime.musicbrainz,
+    refetchOnMount: true,
 
     queryFn: async (): Promise<ExternalArtist | null> => {
       if (!enabled) return null;

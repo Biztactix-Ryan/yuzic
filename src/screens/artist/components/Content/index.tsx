@@ -8,10 +8,23 @@ import { useTheme } from '@/hooks/useTheme'
 import { useArtistMbid } from '@/hooks/artists'
 
 type Props = {
-  artist: Artist
-}
+  artist: Artist;
+  onRefresh: () => void;
+  isRefreshing: boolean;
+};
 
-const ESTIMATED_ROW_HEIGHT = 80
+type CombinedAlbum =
+  | (AlbumBase & { source: 'owned' })
+  | (ExternalAlbumBase & { source: 'external' });
+
+const ESTIMATED_ROW_HEIGHT = 80;
+
+const normalizeKey = (artist: string, title: string) =>
+  `${artist}:${title}`.toLowerCase().trim();
+
+const ArtistContent: React.FC<Props> = ({ artist, onRefresh, isRefreshing }) => {
+  const navigation = useNavigation();
+  const { isDarkMode } = useTheme();
 
 export default function ArtistContent({ artist }: Props) {
   const navigation = useNavigation()
@@ -37,6 +50,8 @@ export default function ArtistContent({ artist }: Props) {
         paddingBottom: 140,
         backgroundColor: isDarkMode ? '#000' : '#fff',
       }}
+      onRefresh={onRefresh}
+      refreshing={isRefreshing}
     />
   )
 }
