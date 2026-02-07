@@ -16,7 +16,7 @@ import TrackPlayer, {
 } from 'react-native-track-player';
 import { PlaybackService } from '@/utils/track-player/PlaybackService';
 import { Album, Playlist, Song } from '@/types';
-import shuffleArray from '@/utils/shuffleArray';
+import shuffleArray, { getEnhancedRandom } from '@/utils/shuffleArray';
 import { useDownload } from '@/contexts/DownloadContext';
 import { useApi } from '@/api';
 import { buildCover } from '@/utils/builders/buildCover';
@@ -278,6 +278,16 @@ export const PlayingProvider: React.FC<{ children: ReactNode }> = ({ children })
     if (shuffle) {
       originalQueueRef.current = songs;
       songs = shuffleArray(songs);
+      
+      // Ensure the first song in the shuffled array is not the same as the original first song
+      // This guarantees a truly random experience when clicking shuffle
+      if (songs.length > 1 && songs[0].id === originalQueueRef.current[0].id) {
+        // Swap the first song with a random song from the rest of the array
+        // Use enhanced random with timestamp-based entropy
+        const randomIndex = Math.floor(getEnhancedRandom() * (songs.length - 1)) + 1;
+        [songs[0], songs[randomIndex]] = [songs[randomIndex], songs[0]];
+      }
+      
       // When shuffling, always start from the beginning of the shuffled array.
       // The selectedSong parameter is ignored to ensure true randomization.
       index = 0;
